@@ -250,8 +250,39 @@ function restoreSpecObject(specObject) {
  */
 function asJsonSchema(oasSchema) {
   const schema = restoreSpecObject(oasSchema);
-  const jsonSchema = toJsonSchema(schema);
+  let jsonSchema = toJsonSchema(schema);
   delete jsonSchema['$schema'];
+  // See https://json-schema.org/draft-06/json-schema-release-notes.html
+  if (jsonSchema.id) {
+    // id => $id
+    jsonSchema.$id = jsonSchema.id;
+    delete jsonSchema.id;
+  }
+  jsonSchema = _.cloneDeepWith(jsonSchema, value => {
+    if (value == null) return value;
+    let changed = false;
+    if (typeof value.exclusiveMinimum === 'boolean') {
+      // exclusiveMinimum + minimum (boolean + number) => exclusiveMinimum (number)
+      if (value.exclusiveMinimum) {
+        value.exclusiveMinimum = value.minimum;
+        delete value.minimum;
+      } else {
+        delete value.exclusiveMinimum;
+      }
+      changed = true;
+    }
+    if (typeof value.exclusiveMaximum === 'boolean') {
+      // exclusiveMaximum + maximum (boolean + number) => exclusiveMaximum (number)
+      if (value.exclusiveMaximum) {
+        value.exclusiveMaximum = value.maximum;
+        delete value.maximum;
+      } else {
+        delete value.exclusiveMaximum;
+      }
+      changed = true;
+    }
+    return changed ? value : undefined;
+  });
   return printSpecObject(jsonSchema);
 }
 
